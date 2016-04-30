@@ -92,10 +92,6 @@ volatile static unsigned long step_events_completed; // The number of step event
 #endif
 
 #ifdef LIN_ADVANCE
-volatile int e_steps = 0;
-static int final_estep_rate;
-static int current_estep_rate[EXTRUDERS]; //Actual extruder speed [steps/s]
-
 #if EXTRUDERS > 3
   #define EXTRUDERS_ZERO 0, 0, 0, 0
 #elif EXTRUDERS > 2
@@ -106,6 +102,9 @@ static int current_estep_rate[EXTRUDERS]; //Actual extruder speed [steps/s]
   #define EXTRUDERS_ZERO 0
 #endif
 
+volatile int e_steps[EXTRUDERS] = {EXTRUDERS_ZERO};
+static int final_estep_rate;
+static int current_estep_rate[EXTRUDERS]; //Actual extruder speed [steps/s]
 static int current_adv_steps[EXTRUDERS] = {EXTRUDERS_ZERO}; //The amount of current added esteps due to advance. Think of it as the current amount of pressure applied to the spring (=filament).
 #endif
 
@@ -738,49 +737,15 @@ ISR(TIMER1_COMPA_vect) {
          if (counter_e > 0) {
            counter_e -= current_block->step_event_count;
            count_position[_AXIS(E)] += count_direction[_AXIS(E)];
-           e_steps += TEST(out_bits, E_AXIS) ? -1 : 1;
+           e_steps[current_block->active_extruder] += TEST(out_bits, E_AXIS) ? -1 : 1;
          }
          
          if (current_block->use_advance_lead){
            int delta_adv_steps; //Maybe a char would be enough?
            delta_adv_steps = (((long)extruder_advance_k * current_estep_rate[current_block->active_extruder]) >> 9) - current_adv_steps[current_block->active_extruder];
-           e_steps += delta_adv_steps;
+           e_steps[current_block->active_extruder] += delta_adv_steps;
            current_adv_steps[current_block->active_extruder] += delta_adv_steps;
          }
-   
-         #define STEP_E_ONCE(INDEX) \
-         E## INDEX ##_STEP_WRITE(INVERT_E_STEP_PIN); \
-         if (e_steps < 0) { \
-           E## INDEX ##_DIR_WRITE(INVERT_E## INDEX ##_DIR); \
-           e_steps++; \
-         } \
-         else if (e_steps > 0) { \
-           E## INDEX ##_DIR_WRITE(!INVERT_E## INDEX ##_DIR); \
-           e_steps--; \
-         } \
-         E## INDEX ##_STEP_WRITE(!INVERT_E_STEP_PIN);
-         
-        while (e_steps) {
-          #if EXTRUDERS > 3
-            switch(current_block->active_extruder){case 3:STEP_E_ONCE(3);break;case 2:STEP_E_ONCE(2);break;case 1:STEP_E_ONCE(1);break;default:STEP_E_ONCE(0);}
-          #elif EXTRUDERS > 2
-            switch(current_block->active_extruder){case 2:STEP_E_ONCE(2);break;case 1:STEP_E_ONCE(1);break;default:STEP_E_ONCE(0);}
-          #elif EXTRUDERS > 1
-            #if DISABLED(DUAL_X_CARRIAGE)
-              if(current_block->active_extruder == 1){STEP_E_ONCE(1)}else{STEP_E_ONCE(0);}
-            #else
-              extern bool extruder_duplication_enabled;
-              if(extruder_duplication_enabled){
-                STEP_E_ONCE(0);
-                STEP_E_ONCE(1);
-              }else {
-                if(current_block->active_extruder == 1){STEP_E_ONCE(1)}else{STEP_E_ONCE(0);}
-              }
-            #endif
-          #else
-            STEP_E_ONCE(0);
-          #endif
-        }
       #endif //LIN_ADVANCE
 
       #if ENABLED(ADVANCE)
@@ -907,42 +872,51 @@ ISR(TIMER1_COMPA_vect) {
   }
 }
 
-#if ENABLED(ADVANCE)
-  unsigned char old_OCR0A;
-  // Timer interrupt for E. e_steps is set in the main routine;
-  // Timer 0 is shared with millies
-  ISR(TIMER0_COMPA_vect) {
-    old_OCR0A += 52; // ~10kHz interrupt (250000 / 26 = 9615kHz)
-    OCR0A = old_OCR0A;
+#if (ENABLED(ADVANCE) || ENABLED(LIN_ADVANCE))
+unsigned char old_OCR0A;
+// Timer interrupt for E. e_steps is set in the main routine;
+// Timer 0 is shared with millies
+ISR(TIMER0_COMPA_vect) {
+  old_OCR0A += 52; // ~10kHz interrupt (250000 / 26 = 9615kHz)
+  OCR0A = old_OCR0A;
 
-    #define STEP_E_ONCE(INDEX) \
-      if (e_steps[INDEX] != 0) { \
-        E## INDEX ##_STEP_WRITE(INVERT_E_STEP_PIN); \
-        if (e_steps[INDEX] < 0) { \
-          E## INDEX ##_DIR_WRITE(INVERT_E## INDEX ##_DIR); \
-          e_steps[INDEX]++; \
-        } \
-        else if (e_steps[INDEX] > 0) { \
-          E## INDEX ##_DIR_WRITE(!INVERT_E## INDEX ##_DIR); \
-          e_steps[INDEX]--; \
-        } \
-        E## INDEX ##_STEP_WRITE(!INVERT_E_STEP_PIN); \
-      }
-
-    // Step all E steppers that have steps, up to 4 steps per interrupt
-    for (unsigned char i = 0; i < 4; i++) {
-      STEP_E_ONCE(0);
-      #if EXTRUDERS > 1
-        STEP_E_ONCE(1);
-        #if EXTRUDERS > 2
-          STEP_E_ONCE(2);
-          #if EXTRUDERS > 3
-            STEP_E_ONCE(3);
-          #endif
-        #endif
-      #endif
-    }
+#define STEP_E_ONCE(INDEX) \
+  if (e_steps[INDEX] != 0) { \
+    E## INDEX ##_STEP_WRITE(INVERT_E_STEP_PIN); \
+    if (e_steps[INDEX] < 0) { \
+      E## INDEX ##_DIR_WRITE(INVERT_E## INDEX ##_DIR); \
+      e_steps[INDEX]++; \
+    } \
+    else if (e_steps[INDEX] > 0) { \
+      E## INDEX ##_DIR_WRITE(!INVERT_E## INDEX ##_DIR); \
+      e_steps[INDEX]--; \
+    } \
+    E## INDEX ##_STEP_WRITE(!INVERT_E_STEP_PIN); \
   }
+
+  // Step all E steppers that have steps, up to 4 steps per interrupt
+  for (unsigned char i = 0; i < 4; i++) {
+    #if EXTRUDERS > 3
+      switch(current_block->active_extruder){case 3:STEP_E_ONCE(3);break;case 2:STEP_E_ONCE(2);break;case 1:STEP_E_ONCE(1);break;default:STEP_E_ONCE(0);}
+    #elif EXTRUDERS > 2
+      switch(current_block->active_extruder){case 2:STEP_E_ONCE(2);break;case 1:STEP_E_ONCE(1);break;default:STEP_E_ONCE(0);}
+    #elif EXTRUDERS > 1
+      #if DISABLED(DUAL_X_CARRIAGE)
+        if(current_block->active_extruder == 1){STEP_E_ONCE(1)}else{STEP_E_ONCE(0);}
+      #else
+        extern bool extruder_duplication_enabled;
+        if(extruder_duplication_enabled){
+          STEP_E_ONCE(0);
+          STEP_E_ONCE(1);
+        }else {
+          if(current_block->active_extruder == 1){STEP_E_ONCE(1)}else{STEP_E_ONCE(0);}
+        }
+      #endif
+    #else
+      STEP_E_ONCE(0);
+    #endif
+  }
+}
 #endif // ADVANCE
 
 void st_init() {
@@ -1164,7 +1138,15 @@ void st_init() {
   OCR1A = 0x4000;
   TCNT1 = 0;
   ENABLE_STEPPER_DRIVER_INTERRUPT();
-
+  
+  #if ENABLED(LIN_ADVANCE)
+   #if defined(TCCR0A) && defined(WGM01)
+      CBI(TCCR0A, WGM01);
+      CBI(TCCR0A, WGM00);
+   #endif
+   SBI(TIMSK0, OCIE0A);
+  #endif //LIN_ADVANCE
+  
   #if ENABLED(ADVANCE)
     #if defined(TCCR0A) && defined(WGM01)
       CBI(TCCR0A, WGM01);
