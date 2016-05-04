@@ -6155,13 +6155,13 @@ inline void gcode_M503() {
 #endif // DUAL_X_CARRIAGE
 
 #if ENABLED(LIN_ADVANCE)
-/**
- * M905: Set advance factor
- */
-inline void gcode_M905() {
-  stepper.synchronize();
-  stepper.advance_M905();
-}
+  /**
+   * M905: Set advance factor
+   */
+  inline void gcode_M905() {
+    stepper.synchronize();
+    stepper.advance_M905();
+  }
 #endif
 
 /**

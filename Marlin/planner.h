@@ -64,15 +64,15 @@ typedef struct {
 
   unsigned char direction_bits;             // The direction bit set for this block (refers to *_DIRECTION_BIT in config.h)
 
-  #if ENABLED(ADVANCE)
+  // Advance extrusion
+  #if ENABLED(LIN_ADVANCE)
+    bool use_advance_lead;
+    int e_speed_multiplier8; // Factorised by 2^8 to avoid float
+  #elif ENABLED(ADVANCE)
     long advance_rate;
     volatile long initial_advance;
     volatile long final_advance;
     float advance;
-  #endif
-  #ifdef LIN_ADVANCE
-    bool use_advance_lead;
-    int e_speed_multiplier8; //factorised by 2^8 to avoid float
   #endif
 
   // Fields used by the motion planner to manage acceleration
@@ -167,10 +167,6 @@ class Planner {
       static unsigned char old_direction_bits = 0;
       // Segment times (in µs). Used for speed calculations
       static long axis_segment_time[2][3] = { {MAX_FREQ_TIME + 1, 0, 0}, {MAX_FREQ_TIME + 1, 0, 0} };
-    #endif
-
-    #if ENABLED(DUAL_X_CARRIAGE)
-      extern bool extruder_duplication_enabled;
     #endif
 
   public:

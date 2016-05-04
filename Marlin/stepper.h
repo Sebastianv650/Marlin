@@ -90,14 +90,6 @@ class Stepper {
       bool performing_homing = false;
     #endif
 
-    #if ENABLED(ADVANCE)
-      long e_steps[4];
-    #endif
-    
-    #if ENABLED(LIN_ADVANCE)
-      int extruder_advance_k = LIN_K;
-    #endif
-
   private:
 
     unsigned char last_direction_bits = 0;        // The next stepping-bits to be output
@@ -112,19 +104,28 @@ class Stepper {
     long counter_X = 0, counter_Y = 0, counter_Z = 0, counter_E = 0;
     volatile unsigned long step_events_completed = 0; // The number of step events executed in the current block
 
-    #if ENABLED(ADVANCE)
+    #if ENABLED(ADVANCE) || ENABLED(LIN_ADVANCE)
+
       unsigned char old_OCR0A;
-      long advance_rate, advance, final_advance = 0;
-      long old_advance = 0;
-    #endif
-    
-    #if ENABLED(LIN_ADVANCE)
-      unsigned char old_OCR0A;
-      volatile int e_steps[EXTRUDERS];
-      int final_estep_rate;
-      int current_estep_rate[EXTRUDERS]; //Actual extruder speed [steps/s]
-      int current_adv_steps[EXTRUDERS]; //The amount of current added esteps due to advance. Think of it as the current amount of pressure applied to the spring (=filament).
-    #endif
+
+      #if ENABLED(LIN_ADVANCE)
+
+        int extruder_advance_k = LIN_ADVANCE_K;
+        volatile int e_steps[EXTRUDERS];
+        int final_estep_rate;
+        int current_estep_rate[EXTRUDERS]; // Actual extruder speed [steps/s]
+        int current_adv_steps[EXTRUDERS];  // The amount of current added esteps due to advance.
+                                           // i.e., the current amount of pressure applied
+                                           // to the spring (=filament).
+      #elif ENABLED(ADVANCE)
+
+        long e_steps[4];
+        long advance_rate, advance, final_advance = 0;
+        long old_advance = 0;
+
+      #endif
+
+    #endif // ADVANCE or LIN_ADVANCE
 
     long acceleration_time, deceleration_time;
     //unsigned long accelerate_until, decelerate_after, acceleration_rate, initial_rate, final_rate, nominal_rate;
@@ -171,14 +172,8 @@ class Stepper {
 
     void isr();
 
-    #if ENABLED(ADVANCE)
+    #if ENABLED(ADVANCE) || ENABLED(LIN_ADVANCE)
       void advance_isr();
-    #endif
-    
-    #if ENABLED(LIN_ADVANCE)
-      void advance_isr();
-      void advance_M905();
-      int get_advance_k();
     #endif
 
     //
@@ -267,6 +262,11 @@ class Stepper {
       return endstops_trigsteps[axis] / planner.axis_steps_per_unit[axis];
     }
 
+    #if ENABLED(LIN_ADVANCE)
+      void advance_M905();
+      FORCE_INLINE int get_advance_k() { return extruder_advance_k; }
+    #endif
+
   private:
 
     FORCE_INLINE unsigned short calc_timer(unsigned short step_rate) {
@@ -334,7 +334,7 @@ class Stepper {
       OCR1A = acceleration_time;
       
       #if ENABLED(LIN_ADVANCE)
-        if (current_block->use_advance_lead){
+        if (current_block->use_advance_lead) {
           current_estep_rate[current_block->active_extruder] = ((unsigned long)acc_step_rate * current_block->e_speed_multiplier8) >> 8;
           final_estep_rate = (current_block->nominal_rate * current_block->e_speed_multiplier8) >> 8;
         }
