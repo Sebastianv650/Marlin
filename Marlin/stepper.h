@@ -93,6 +93,10 @@ class Stepper {
     #if ENABLED(ADVANCE)
       long e_steps[4];
     #endif
+    
+    #if ENABLED(LIN_ADVANCE)
+      int extruder_advance_k = LIN_K;
+    #endif
 
   private:
 
@@ -112,6 +116,14 @@ class Stepper {
       unsigned char old_OCR0A;
       long advance_rate, advance, final_advance = 0;
       long old_advance = 0;
+    #endif
+    
+    #if ENABLED(LIN_ADVANCE)
+      unsigned char old_OCR0A;
+      volatile int e_steps[EXTRUDERS];
+      int final_estep_rate;
+      int current_estep_rate[EXTRUDERS]; //Actual extruder speed [steps/s]
+      int current_adv_steps[EXTRUDERS]; //The amount of current added esteps due to advance. Think of it as the current amount of pressure applied to the spring (=filament).
     #endif
 
     long acceleration_time, deceleration_time;
@@ -161,6 +173,12 @@ class Stepper {
 
     #if ENABLED(ADVANCE)
       void advance_isr();
+    #endif
+    
+    #if ENABLED(LIN_ADVANCE)
+      void advance_isr();
+      void advance_M905();
+      int get_advance_k();
     #endif
 
     //
@@ -314,6 +332,13 @@ class Stepper {
       acc_step_rate = current_block->initial_rate;
       acceleration_time = calc_timer(acc_step_rate);
       OCR1A = acceleration_time;
+      
+      #if ENABLED(LIN_ADVANCE)
+        if (current_block->use_advance_lead){
+          current_estep_rate[current_block->active_extruder] = ((unsigned long)acc_step_rate * current_block->e_speed_multiplier8) >> 8;
+          final_estep_rate = (current_block->nominal_rate * current_block->e_speed_multiplier8) >> 8;
+        }
+      #endif
 
       // SERIAL_ECHO_START;
       // SERIAL_ECHOPGM("advance :");
