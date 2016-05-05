@@ -877,7 +877,16 @@ unsigned char old_OCR0A;
 // Timer interrupt for E. e_steps is set in the main routine;
 // Timer 0 is shared with millies
 ISR(TIMER0_COMPA_vect) {
-  old_OCR0A += 52; // ~10kHz interrupt (250000 / 26 = 9615kHz)
+  //old_OCR0A += 52; // ~10kHz interrupt (250000 / 26 = 9615kHz)
+  if (e_steps[0] > 3) {
+    old_OCR0A += 13;
+  } else if (e_steps[0] > 2) {
+    old_OCR0A += 17;
+  } else if (e_steps[0] > 1) {
+    old_OCR0A += 26;
+  } else {
+    old_OCR0A += 52;
+  }
   OCR0A = old_OCR0A;
 
 #define STEP_E_ONCE(INDEX) \
@@ -894,28 +903,25 @@ ISR(TIMER0_COMPA_vect) {
     E## INDEX ##_STEP_WRITE(!INVERT_E_STEP_PIN); \
   }
 
-  // Step all E steppers that have steps, up to 4 steps per interrupt
-  for (unsigned char i = 0; i < 4; i++) {
-    #if EXTRUDERS > 3
-      switch(current_block->active_extruder){case 3:STEP_E_ONCE(3);break;case 2:STEP_E_ONCE(2);break;case 1:STEP_E_ONCE(1);break;default:STEP_E_ONCE(0);}
-    #elif EXTRUDERS > 2
-      switch(current_block->active_extruder){case 2:STEP_E_ONCE(2);break;case 1:STEP_E_ONCE(1);break;default:STEP_E_ONCE(0);}
-    #elif EXTRUDERS > 1
-      #if DISABLED(DUAL_X_CARRIAGE)
-        if(current_block->active_extruder == 1){STEP_E_ONCE(1)}else{STEP_E_ONCE(0);}
-      #else
-        extern bool extruder_duplication_enabled;
-        if(extruder_duplication_enabled){
-          STEP_E_ONCE(0);
-          STEP_E_ONCE(1);
-        }else {
-          if(current_block->active_extruder == 1){STEP_E_ONCE(1)}else{STEP_E_ONCE(0);}
-        }
-      #endif
-    #else
-      STEP_E_ONCE(0);
-    #endif
-  }
+ #if EXTRUDERS > 3
+   switch(current_block->active_extruder){case 3:STEP_E_ONCE(3);break;case 2:STEP_E_ONCE(2);break;case 1:STEP_E_ONCE(1);break;default:STEP_E_ONCE(0);}
+ #elif EXTRUDERS > 2
+   switch(current_block->active_extruder){case 2:STEP_E_ONCE(2);break;case 1:STEP_E_ONCE(1);break;default:STEP_E_ONCE(0);}
+ #elif EXTRUDERS > 1
+   #if DISABLED(DUAL_X_CARRIAGE)
+     if(current_block->active_extruder == 1){STEP_E_ONCE(1)}else{STEP_E_ONCE(0);}
+   #else
+     extern bool extruder_duplication_enabled;
+     if(extruder_duplication_enabled){
+       STEP_E_ONCE(0);
+       STEP_E_ONCE(1);
+     }else {
+       if(current_block->active_extruder == 1){STEP_E_ONCE(1)}else{STEP_E_ONCE(0);}
+     }
+   #endif
+ #else
+   STEP_E_ONCE(0);
+ #endif
 }
 #endif // ADVANCE
 
