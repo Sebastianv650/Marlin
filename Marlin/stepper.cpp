@@ -880,7 +880,7 @@ ISR(TIMER0_COMPA_vect) {
   //old_OCR0A += 52; // ~10kHz interrupt (250000 / 26 = 9615kHz)
   byte maxesteps = 0;
   for (unsigned char i = 0; i < EXTRUDERS; i++) {
-    if (abs(e_steps[i]) > maxesteps) maxesteps = abs(e_steps[i];
+    if (abs(e_steps[i]) > maxesteps) maxesteps = abs(e_steps[i]);
   }
   if (maxesteps > 3) {
     old_OCR0A += 13;
