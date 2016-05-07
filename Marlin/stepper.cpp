@@ -103,6 +103,7 @@ volatile static unsigned long step_events_completed; // The number of step event
 #endif
 
 volatile int e_steps[EXTRUDERS] = {EXTRUDERS_ZERO};
+volatile unsigned char eISR_Rate = 200; //Start with the extruder ISR at a very low speed because we don't need it at the moment.
 static int final_estep_rate;
 static int current_estep_rate[EXTRUDERS]; //Actual extruder speed [steps/s]
 static int current_adv_steps[EXTRUDERS] = {EXTRUDERS_ZERO}; //The amount of current added esteps due to advance. Think of it as the current amount of pressure applied to the spring (=filament).
@@ -746,6 +747,10 @@ ISR(TIMER1_COMPA_vect) {
            e_steps[current_block->active_extruder] += delta_adv_steps;
            current_adv_steps[current_block->active_extruder] += delta_adv_steps;
          }
+         
+         if (e_steps[current_block->active_extruder]){
+           OCR0A = TCNT0 + 2; //If we have esteps to execute, fire the next extruder ISR "now".
+         }
       #endif //LIN_ADVANCE
 
       #if ENABLED(ADVANCE)
@@ -802,6 +807,7 @@ ISR(TIMER1_COMPA_vect) {
       // step_rate to timer interval
       timer = calc_timer(acc_step_rate);
       OCR1A = timer;
+      eISR_Rate = (timer >> 2) / e_steps[current_block->active_extruder];
       acceleration_time += timer;
 
       #if ENABLED(ADVANCE)
@@ -833,6 +839,7 @@ ISR(TIMER1_COMPA_vect) {
       // step_rate to timer interval
       timer = calc_timer(step_rate);
       OCR1A = timer;
+      eISR_Rate = (timer >> 2) / e_steps[current_block->active_extruder];
       deceleration_time += timer;
 
       #if ENABLED(ADVANCE)
@@ -858,6 +865,7 @@ ISR(TIMER1_COMPA_vect) {
          }
       #endif 
       OCR1A = OCR1A_nominal;
+      eISR_Rate = (OCR1A_nominal >> 2) / e_steps[current_block->active_extruder];
       // ensure we're running at the correct step rate, even if we just came off an acceleration
       step_loops = step_loops_nominal;
     }
@@ -877,20 +885,7 @@ unsigned char old_OCR0A;
 // Timer interrupt for E. e_steps is set in the main routine;
 // Timer 0 is shared with millies
 ISR(TIMER0_COMPA_vect) {
-  //old_OCR0A += 52; // ~10kHz interrupt (250000 / 26 = 9615kHz)
-  byte maxesteps = 0;
-  for (unsigned char i = 0; i < EXTRUDERS; i++) {
-    if (abs(e_steps[i]) > maxesteps) maxesteps = abs(e_steps[i]);
-  }
-  if (maxesteps > 3) {
-    old_OCR0A += 13;
-  } else if (maxesteps > 2) {
-    old_OCR0A += 17;
-  } else if (maxesteps > 1) {
-    old_OCR0A += 26;
-  } else {
-    old_OCR0A += 52;
-  }
+  old_OCR0A += eISR_Rate; // ~10kHz interrupt (250000 / 26 = 9615kHz)
   OCR0A = old_OCR0A;
 
 #define STEP_E_ONCE(INDEX) \
