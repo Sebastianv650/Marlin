@@ -22,7 +22,7 @@
 
 /**
  * stepper.h - stepper motor driver: executes motion plans of planner.c using the stepper motors
- * Part of Grbl
+ * Derived from Grbl
  *
  * Copyright (c) 2009-2011 Simen Svale Skogsrud
  *
@@ -107,6 +107,7 @@ class Stepper {
     #if ENABLED(ADVANCE) || ENABLED(LIN_ADVANCE)
 
       unsigned char old_OCR0A;
+      volatile unsigned char eISR_Rate = 200; // Keep the ISR at a low rate until needed
 
       #if ENABLED(LIN_ADVANCE)
 
