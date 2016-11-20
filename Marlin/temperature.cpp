@@ -1489,6 +1489,11 @@ void Temperature::set_current_temp_raw() {
 ISR(TIMER0_COMPB_vect) { Temperature::isr(); }
 
 void Temperature::isr() {
+  //Disable some ISRs and enable global ISR again to capture UART events (incoming chars)
+  //CBI(TIMSK0, OCIE0A); //estepper ISR
+  CBI(TIMSK0, OCIE0B); //Temperature ISR
+  //DISABLE_STEPPER_DRIVER_INTERRUPT();
+  sei();
 
   static uint8_t temp_count = 0;
   static TempState temp_state = StartupDelay;
@@ -1940,4 +1945,8 @@ void Temperature::isr() {
       if (!endstop_monitor_count) endstop_monitor();  // report changes in endstop status
     }
   #endif
+  //re-enable ISRs
+  //SBI(TIMSK0, OCIE0A);
+  SBI(TIMSK0, OCIE0B);
+  //ENABLE_STEPPER_DRIVER_INTERRUPT();
 }
