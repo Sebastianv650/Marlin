@@ -2777,16 +2777,6 @@ void lcd_update() {
 
     if (LCD_HANDLER_CONDITION) {
 
-      #define U8G_BENCHMARK
-      #if ENABLED(U8G_BENCHMARK) && DISABLED(DOGLCD)
-        #error "U8G_BENCHMARK needs a u8g display!"
-      #endif
-
-      #if ENABLED(U8G_BENCHMARK)
-        static millis_t u8g_times[20];
-        static uint8_t u8g_count = 0;
-      #endif
-
       #if ENABLED(DOGLCD)
         static uint8_t drawing_screen = 0;
         if (lcdDrawUpdate || drawing_screen) {
@@ -2817,54 +2807,18 @@ void lcd_update() {
           if (!drawing_screen) {
             u8g.firstPage();
             dot_color = 1 - dot_color;
-            #if ENABLED(U8G_BENCHMARK)
-              u8g_count = 0;
-            #endif
           }
-          #if ENABLED(U8G_BENCHMARK)
-            u8g_times[u8g_count++] = millis();
-          #endif
           lcd_setFont(FONT_MENU);
           u8g.setPrintPos(125, 0);
           u8g.setColorIndex(dot_color); // Set color for the alive dot
           u8g.drawPixel(127, 63); // draw alive dot
           u8g.setColorIndex(1); // black on white
           CURRENTSCREEN();
-          #if ENABLED(U8G_BENCHMARK)
-            u8g_times[u8g_count++] = millis();
-          #endif
           drawing_screen = u8g.nextPage();
-          #if ENABLED(U8G_BENCHMARK)
-            u8g_times[u8g_count++] = millis();
-          #endif
         #else
           CURRENTSCREEN();
         #endif
       }
-
-      #if ENABLED(U8G_BENCHMARK)
-        static millis_t u8g_drawsum = 0;
-        static millis_t u8g_transsum = 0;
-
-        if (!drawing_screen && u8g_count) {
-          SERIAL_ECHO_START;
-          for ( uint8_t i = 0; i < u8g_count-1; i += 3) {
-            SERIAL_ECHOPAIR(" #:", u8g_times[i+1] - u8g_times[i]);
-            u8g_drawsum += u8g_times[i+1] - u8g_times[i];
-            SERIAL_ECHOPAIR(" >:", u8g_times[i+2] - u8g_times[i+1]);
-            u8g_transsum += u8g_times[i+2] - u8g_times[i+1];
-            SERIAL_ECHOPAIR(" s:", u8g_times[i+2] - u8g_times[i]);
-            SERIAL_ECHO(";  ");
-          }
-          SERIAL_ECHOPAIR(" S#:", u8g_drawsum);
-          SERIAL_ECHOPAIR(" S>:", u8g_transsum);
-          SERIAL_ECHOPAIR(" S:", u8g_drawsum + u8g_transsum);
-          SERIAL_EOL;
-          u8g_drawsum = 0;
-          u8g_transsum = 0;
-          u8g_count = 0;
-        }
-      #endif
 
       #if ENABLED(ULTIPANEL)
 
