@@ -2777,19 +2777,34 @@ void lcd_update() {
 
     if (LCD_HANDLER_CONDITION) {
 
-      if (lcdDrawUpdate) {
+      #define U8G_BENCHMARK
+      #if ENABLED(U8G_BENCHMARK) && DISABLED(DOGLCD)
+        #error "U8G_BENCHMARK needs a u8g display!"
+      #endif
 
-        switch (lcdDrawUpdate) {
-          case LCDVIEW_CALL_NO_REDRAW:
-            lcdDrawUpdate = LCDVIEW_NONE;
-            break;
-          case LCDVIEW_CLEAR_CALL_REDRAW: // set by handlers, then altered after (rarely occurs here)
-          case LCDVIEW_CALL_REDRAW_NEXT:  // set by handlers, then altered after (never occurs here?)
-            lcdDrawUpdate = LCDVIEW_REDRAW_NOW;
-          case LCDVIEW_REDRAW_NOW:        // set above, or by a handler through LCDVIEW_CALL_REDRAW_NEXT
-          case LCDVIEW_NONE:
-            break;
-        } // switch
+      #if ENABLED(U8G_BENCHMARK)
+        static millis_t u8g_times[20];
+        static uint8_t u8g_count = 0;
+      #endif
+
+      #if ENABLED(DOGLCD)
+        static uint8_t drawing_screen = 0;
+        if (lcdDrawUpdate || drawing_screen) {
+          if (!drawing_screen)
+      #else
+        if (lcdDrawUpdate) {
+      #endif
+          switch (lcdDrawUpdate) {
+            case LCDVIEW_CALL_NO_REDRAW:
+              lcdDrawUpdate = LCDVIEW_NONE;
+              break;
+            case LCDVIEW_CLEAR_CALL_REDRAW: // set by handlers, then altered after (rarely occurs here)
+            case LCDVIEW_CALL_REDRAW_NEXT:  // set by handlers, then altered after (never occurs here?)
+              lcdDrawUpdate = LCDVIEW_REDRAW_NOW;
+            case LCDVIEW_REDRAW_NOW:        // set above, or by a handler through LCDVIEW_CALL_REDRAW_NEXT
+            case LCDVIEW_NONE:
+              break;
+          } // switch
 
         #if ENABLED(ULTIPANEL)
           #define CURRENTSCREEN() (*currentScreen)(), lcd_clicked = false
@@ -2799,20 +2814,57 @@ void lcd_update() {
 
         #if ENABLED(DOGLCD)  // Changes due to different driver architecture of the DOGM display
           static int8_t dot_color = 0;
-          dot_color = 1 - dot_color;
-          u8g.firstPage();
-          do {
-            lcd_setFont(FONT_MENU);
-            u8g.setPrintPos(125, 0);
-            u8g.setColorIndex(dot_color); // Set color for the alive dot
-            u8g.drawPixel(127, 63); // draw alive dot
-            u8g.setColorIndex(1); // black on white
-            CURRENTSCREEN();
-          } while (u8g.nextPage());
+          if (!drawing_screen) {
+            u8g.firstPage();
+            dot_color = 1 - dot_color;
+            #if ENABLED(U8G_BENCHMARK)
+              u8g_count = 0;
+            #endif
+          }
+          #if ENABLED(U8G_BENCHMARK)
+            u8g_times[u8g_count++] = millis();
+          #endif
+          lcd_setFont(FONT_MENU);
+          u8g.setPrintPos(125, 0);
+          u8g.setColorIndex(dot_color); // Set color for the alive dot
+          u8g.drawPixel(127, 63); // draw alive dot
+          u8g.setColorIndex(1); // black on white
+          CURRENTSCREEN();
+          #if ENABLED(U8G_BENCHMARK)
+            u8g_times[u8g_count++] = millis();
+          #endif
+          drawing_screen = u8g.nextPage();
+          #if ENABLED(U8G_BENCHMARK)
+            u8g_times[u8g_count++] = millis();
+          #endif
         #else
           CURRENTSCREEN();
         #endif
       }
+
+      #if ENABLED(U8G_BENCHMARK)
+        static millis_t u8g_drawsum = 0;
+        static millis_t u8g_transsum = 0;
+
+        if (!drawing_screen && u8g_count) {
+          SERIAL_ECHO_START;
+          for ( uint8_t i = 0; i < u8g_count-1; i += 3) {
+            SERIAL_ECHOPAIR(" #:", u8g_times[i+1] - u8g_times[i]);
+            u8g_drawsum += u8g_times[i+1] - u8g_times[i];
+            SERIAL_ECHOPAIR(" >:", u8g_times[i+2] - u8g_times[i+1]);
+            u8g_transsum += u8g_times[i+2] - u8g_times[i+1];
+            SERIAL_ECHOPAIR(" s:", u8g_times[i+2] - u8g_times[i]);
+            SERIAL_ECHO(";  ");
+          }
+          SERIAL_ECHOPAIR(" S#:", u8g_drawsum);
+          SERIAL_ECHOPAIR(" S>:", u8g_transsum);
+          SERIAL_ECHOPAIR(" S:", u8g_drawsum + u8g_transsum);
+          SERIAL_EOL;
+          u8g_drawsum = 0;
+          u8g_transsum = 0;
+          u8g_count = 0;
+        }
+      #endif
 
       #if ENABLED(ULTIPANEL)
 
@@ -2824,18 +2876,21 @@ void lcd_update() {
 
       #endif // ULTIPANEL
 
-      switch (lcdDrawUpdate) {
-        case LCDVIEW_CLEAR_CALL_REDRAW:
-          lcd_implementation_clear();
-        case LCDVIEW_CALL_REDRAW_NEXT:
-          lcdDrawUpdate = LCDVIEW_REDRAW_NOW;
-          break;
-        case LCDVIEW_REDRAW_NOW:
-          lcdDrawUpdate = LCDVIEW_NONE;
-          break;
-        case LCDVIEW_NONE:
-          break;
-      } // switch
+      #if ENABLED(DOGLCD)
+        if (!drawing_screen)
+      #endif
+        switch (lcdDrawUpdate) {
+          case LCDVIEW_CLEAR_CALL_REDRAW:
+            lcd_implementation_clear();
+          case LCDVIEW_CALL_REDRAW_NEXT:
+            lcdDrawUpdate = LCDVIEW_REDRAW_NOW;
+            break;
+          case LCDVIEW_REDRAW_NOW:
+            lcdDrawUpdate = LCDVIEW_NONE;
+            break;
+          case LCDVIEW_NONE:
+            break;
+        } // switch
 
     } // LCD_HANDLER_CONDITION
 
