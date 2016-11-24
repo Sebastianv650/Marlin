@@ -2784,17 +2784,17 @@ void lcd_update() {
       #else
         if (lcdDrawUpdate) {
       #endif
-          switch (lcdDrawUpdate) {
-            case LCDVIEW_CALL_NO_REDRAW:
-              lcdDrawUpdate = LCDVIEW_NONE;
-              break;
-            case LCDVIEW_CLEAR_CALL_REDRAW: // set by handlers, then altered after (rarely occurs here)
-            case LCDVIEW_CALL_REDRAW_NEXT:  // set by handlers, then altered after (never occurs here?)
-              lcdDrawUpdate = LCDVIEW_REDRAW_NOW;
-            case LCDVIEW_REDRAW_NOW:        // set above, or by a handler through LCDVIEW_CALL_REDRAW_NEXT
-            case LCDVIEW_NONE:
-              break;
-          } // switch
+        switch (lcdDrawUpdate) {
+          case LCDVIEW_CALL_NO_REDRAW:
+            lcdDrawUpdate = LCDVIEW_NONE;
+            break;
+          case LCDVIEW_CLEAR_CALL_REDRAW: // set by handlers, then altered after (rarely occurs here)
+          case LCDVIEW_CALL_REDRAW_NEXT:  // set by handlers, then altered after (never occurs here?)
+            lcdDrawUpdate = LCDVIEW_REDRAW_NOW;
+          case LCDVIEW_REDRAW_NOW:        // set above, or by a handler through LCDVIEW_CALL_REDRAW_NEXT
+          case LCDVIEW_NONE:
+            break;
+        } // switch
 
         #if ENABLED(ULTIPANEL)
           #define CURRENTSCREEN() (*currentScreen)(), lcd_clicked = false
@@ -2808,12 +2808,12 @@ void lcd_update() {
             u8g.firstPage();
             dot_color = 1 - dot_color;
           }
-          lcd_setFont(FONT_MENU);
-          u8g.setPrintPos(125, 0);
-          u8g.setColorIndex(dot_color); // Set color for the alive dot
-          u8g.drawPixel(127, 63); // draw alive dot
-          u8g.setColorIndex(1); // black on white
-          CURRENTSCREEN();
+            lcd_setFont(FONT_MENU);
+            u8g.setPrintPos(125, 0);
+            u8g.setColorIndex(dot_color); // Set color for the alive dot
+            u8g.drawPixel(127, 63); // draw alive dot
+            u8g.setColorIndex(1); // black on white
+            CURRENTSCREEN();
           drawing_screen = u8g.nextPage();
         #else
           CURRENTSCREEN();
@@ -2833,18 +2833,18 @@ void lcd_update() {
       #if ENABLED(DOGLCD)
         if (!drawing_screen)
       #endif
-        switch (lcdDrawUpdate) {
-          case LCDVIEW_CLEAR_CALL_REDRAW:
-            lcd_implementation_clear();
-          case LCDVIEW_CALL_REDRAW_NEXT:
-            lcdDrawUpdate = LCDVIEW_REDRAW_NOW;
-            break;
-          case LCDVIEW_REDRAW_NOW:
-            lcdDrawUpdate = LCDVIEW_NONE;
-            break;
-          case LCDVIEW_NONE:
-            break;
-        } // switch
+      switch (lcdDrawUpdate) {
+        case LCDVIEW_CLEAR_CALL_REDRAW:
+          lcd_implementation_clear();
+        case LCDVIEW_CALL_REDRAW_NEXT:
+          lcdDrawUpdate = LCDVIEW_REDRAW_NOW;
+          break;
+        case LCDVIEW_REDRAW_NOW:
+          lcdDrawUpdate = LCDVIEW_NONE;
+          break;
+        case LCDVIEW_NONE:
+          break;
+      } // switch
 
     } // LCD_HANDLER_CONDITION
 
