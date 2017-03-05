@@ -1169,4 +1169,13 @@
  */ 
 //#define VOLUMETRIC_DEFAULT_ON
 
+/**
+ * Enable this option for a leaner build of Marlin that removes all
+ * workspace offsets, simplifying coordinate transformations, leveling, etc.
+ *
+ *  - G92 will revert to its behavior from Marlin 1.0.
+ *  - M206 and M428 are disabled.
+ */
+//#define NO_WORKSPACE_OFFSETS
+
 #endif // CONFIGURATION_ADV_H
